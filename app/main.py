@@ -1,47 +1,60 @@
-import sys
-import os
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from app.api import books, categories
+from app.db.db import engine, Base
 
-from app.db.db import SessionLocal
-from app.db.crud import get_categories, get_books
+# Создаём экземпляр приложения FastAPI
+app = FastAPI(
+    title="Book Catalog API",
+    description="API для управления книжным каталогом",
+    version="1.0.0"
+)
 
-def main():
-    """Выводим данные из базы данных"""
-    db = SessionLocal()
-    
-    try:
-        print("\n" + "="*60)
-        print("📚 КНИЖНЫЙ КАТАЛОГ")
-        print("="*60)
-        
-        # Получаем все категории
-        categories = get_categories(db)
-        print(f"\n📂 Всего категорий: {len(categories)}")
-        
-        for category in categories:
-            print(f"\n📖 {category.title.upper()}:")
-            
-            # Получаем книги для этой категории
-            books = get_books(db)
-            category_books = [b for b in books if b.category_id == category.id]
-            
-            if category_books:
-                for book in category_books:
-                    print(f"   • {book.title} — {book.price} руб.")
-                    if book.description:
-                        print(f"     {book.description[:60]}...")
-            else:
-                print("   (нет книг в этой категории)")
-        
-        print("\n" + "="*60)
-        print(f"📊 Итого: {len(categories)} категорий, {len(get_books(db))} книг")
-        print("="*60 + "\n")
-        
-    except Exception as e:
-        print(f"❌ Ошибка: {e}")
-    finally:
-        db.close()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-if __name__ == "__main__":
-    main()
+app.include_router(books.router)
+app.include_router(categories.router)
+
+
+#Health Check 
+@app.get("/health", tags=["Health"])
+def health_check():
+    """
+    Проверка работоспособности сервиса.
+    Возвращает статус и информацию о сервисе.
+    """
+    return {
+        "status": "ok",
+        "service": "Book Catalog API",
+        "version": "1.0.0"
+    }
+
+
+#Root endpoint
+@app.get("/", tags=["Root"])
+def root():
+    """
+    Корневой эндпоинт.
+    Перенаправляет в документацию Swagger.
+    """
+    return {
+        "message": "Welcome to Book Catalog API!",
+        "docs": "/docs",
+        "redoc": "/redoc"
+    }
+
+
+@app.on_event("startup")
+def startup():
+    """Действия при запуске приложения"""
+    Base.metadata.create_all(bind=engine)
+    print(" Database tables created (if not exists)")
+    print(" Server is running at http://127.0.0.1:8000")
+    print(" API Documentation: http://127.0.0.1:8000/docs")
