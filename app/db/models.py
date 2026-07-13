@@ -17,13 +17,12 @@ class Book(Base):
     __tablename__ = "books"
     
     id = Column(Integer, primary_key=True, index=True)
-    title = Column(String, nullable=False)
+    title = Column(String, nullable=False, unique=True)  # <-- Добавили unique=True
     description = Column(String)
     price = Column(Float)
     url = Column(String, default="")
     category_id = Column(Integer, ForeignKey("categories.id"))
     
     category = relationship("Category", back_populates="books")
-    
     def __repr__(self):
         return f"<Book(id={self.id}, title='{self.title}', price={self.price})>"
